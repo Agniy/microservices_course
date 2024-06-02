@@ -2,47 +2,23 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/go-chi/chi"
+	"github.com/olezhek28/microservices_course/week_1/http/pkg/membd"
 	"log"
 	"math/rand"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
-
-	"github.com/go-chi/chi"
 )
 
 const (
 	baseUrl       = "localhost:8081"
 	createPostfix = "/notes"
-	getPostfix    = "/notes/%d"
+	getPostfix    = "/note/{noteId}"
 )
 
-type NoteInfo struct {
-	Title    string `json:"title"`
-	Context  string `json:"context"`
-	Author   string `json:"author"`
-	IsPublic bool   `json:"is_public"`
-}
-
-type Note struct {
-	ID        int64     `json:"id"`
-	Info      NoteInfo  `json:"info"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-}
-
-type SyncMap struct {
-	elems map[int64]*Note
-	m     sync.RWMutex
-}
-
-var notes = &SyncMap{
-	elems: make(map[int64]*Note),
-}
-
 func createNoteHandler(w http.ResponseWriter, r *http.Request) {
-	info := &NoteInfo{}
+	info := &membd.NoteInfo{}
 	if err := json.NewDecoder(r.Body).Decode(info); err != nil {
 		http.Error(w, "Failed to decode note data", http.StatusBadRequest)
 		return
@@ -51,7 +27,7 @@ func createNoteHandler(w http.ResponseWriter, r *http.Request) {
 	rand.Seed(time.Now().UnixNano())
 	now := time.Now()
 
-	note := &Note{
+	noteObj := &membd.Note{
 		ID:        rand.Int63(),
 		Info:      *info,
 		CreatedAt: now,
@@ -60,29 +36,32 @@ func createNoteHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	if err := json.NewEncoder(w).Encode(note); err != nil {
+	if err := json.NewEncoder(w).Encode(noteObj); err != nil {
 		http.Error(w, "Failed to encode note data", http.StatusInternalServerError)
 		return
 	}
 
-	notes.m.Lock()
-	defer notes.m.Unlock()
+	membd.Notes.M.Lock()
+	defer membd.Notes.M.Unlock()
 
-	notes.elems[note.ID] = note
+	membd.Notes.Elems[noteObj.ID] = noteObj
 }
 
 func getNoteHandler(w http.ResponseWriter, r *http.Request) {
-	noteID := chi.URLParam(r, "id")
+	noteID := chi.URLParam(r, "noteId")
 	id, err := parseNoteID(noteID)
 	if err != nil {
 		http.Error(w, "Invalid note ID", http.StatusBadRequest)
 		return
 	}
 
-	notes.m.RLock()
-	defer notes.m.RUnlock()
+	membd.Notes.M.RLock()
+	defer membd.Notes.M.RUnlock()
 
-	note, ok := notes.elems[id]
+	note, ok := membd.Notes.Elems[id]
+
+	log.Printf("id: %d, title: %s, body: %s, created_at: %v, updated_at: %v\n", note.ID, note.Info.Title, note.Info, note.CreatedAt, note.UpdatedAt)
+
 	if !ok {
 		http.Error(w, "Note not found", http.StatusNotFound)
 		return
@@ -107,8 +86,8 @@ func parseNoteID(idStr string) (int64, error) {
 func main() {
 	r := chi.NewRouter()
 
-	r.Post(createPostfix, createNoteHandler)
 	r.Get(getPostfix, getNoteHandler)
+	r.Post(createPostfix, createNoteHandler)
 
 	err := http.ListenAndServe(baseUrl, r)
 	if err != nil {

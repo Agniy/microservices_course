@@ -15,7 +15,7 @@ import (
 const (
 	baseUrl       = "http://localhost:8081"
 	createPostfix = "/notes"
-	getPostfix    = "/notes/%d"
+	getPostfix    = "/note/%d"
 )
 
 type NoteInfo struct {
@@ -57,7 +57,7 @@ func createNoteClient() (Note, error) {
 
 	var createdNote Note
 	if err = json.NewDecoder(resp.Body).Decode(&createdNote); err != nil {
-		return Note{}, err
+		return createdNote, err
 	}
 
 	return createdNote, nil
@@ -70,6 +70,8 @@ func getNoteClient(id int64) (Note, error) {
 	}
 	defer resp.Body.Close()
 
+	log.Printf("resp %v, %v, %v", resp, err, fmt.Sprintf(baseUrl+getPostfix, id))
+
 	if resp.StatusCode == http.StatusNotFound {
 		return Note{}, err
 	}
@@ -80,7 +82,7 @@ func getNoteClient(id int64) (Note, error) {
 
 	var note Note
 	if err = json.NewDecoder(resp.Body).Decode(&note); err != nil {
-		return Note{}, err
+		return note, err
 	}
 
 	return note, nil
@@ -93,6 +95,8 @@ func main() {
 	}
 
 	log.Printf(color.RedString("Note created:\n"), color.GreenString("%+v", note))
+
+	fmt.Printf("note.ID: %d \n", note.ID)
 
 	note, err = getNoteClient(note.ID)
 	if err != nil {
