@@ -1,4 +1,4 @@
-module github.com/olezhek28/microservices_course/week_1/grpc
+module github.com/Agiy/microservices_course/week_1/grpc
 
 go 1.20
 

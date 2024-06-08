@@ -7,7 +7,7 @@ import (
 	"github.com/brianvoe/gofakeit"
 	"github.com/golang/protobuf/proto"
 
-	desc "github.com/olezhek28/microservices_course/week_1/grpc/pkg/note_v1"
+	desc "github.com/Agniy/microservices_course/week_1/grpc/pkg/note_v1"
 )
 
 func main() {
